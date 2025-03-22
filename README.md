@@ -125,13 +125,6 @@ The application will be available at `http://localhost:5173`
 ## 🔐 Environment Variables
 
 - `MONGODB_URI`: MongoDB connection string
-- `STRIPE_SECRET_KEY`: Stripe secret key for payment processing
-- `JWT_SECRET`: Secret key for JWT token generation
-- `NODE_ENV`: Application environment (development/production)
-
-## 📚 Documentation
-
-For detailed documentation about the project's features and API endpoints, visit our [documentation](https://docs.lovable.dev/).
 
 ## 🤝 Contributing
 
@@ -140,19 +133,3 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🌐 Deployment
-
-The project can be deployed using:
-- Lovable platform (recommended)
-- Custom domain using Netlify
-- Other hosting platforms of your choice
-
-For deployment instructions, check our [deployment guide](https://docs.lovable.dev/tips-tricks/custom-domain/).
-
-## 🆘 Support
-
-For support and questions, please:
-- Visit our [documentation](https://docs.lovable.dev/)
-- Open an issue in the repository
-- Contact support at support@lovable.dev
