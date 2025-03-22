@@ -1,104 +1,158 @@
-# Welcome to your Lovable project
+# SafariFlow - Inventory Management System
 
-## Project info
+A modern, feature-rich inventory management system built with React, TypeScript, and MongoDB. InvenHub helps businesses manage their inventory, track sales, analyze performance, and streamline operations.
 
-**URL**: https://lovable.dev/projects/826079be-e09b-4c7e-909e-46ac05ab397e
+## 🌟 Features
 
-## How can I edit this code?
+### 📊 Dashboard
+- Real-time overview of store performance
+- Key metrics tracking (revenue, profit, profit margin)
+- Monthly sales trends visualization
+- Quick access to common operations
+- Inventory status summary
+- Sales by category and channel analytics
 
-There are several ways of editing your application.
+### 📦 Inventory Management
+- Complete product catalog management
+- Low stock alerts and monitoring
+- Barcode scanner integration
+- Automated reorder capabilities
+- Stock level tracking
+- Product categorization
 
-**Use Lovable**
+### 🤝 Supplier Management
+- Supplier database
+- Purchase order management
+- Automated reordering system
+- Supplier performance tracking
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/826079be-e09b-4c7e-909e-46ac05ab397e) and start prompting.
+### 💰 Billing & Transactions
+- Sales transaction recording
+- Payment processing with Stripe integration
+- Transaction history
+- Receipt generation
+- Multiple payment methods support
 
-Changes made via Lovable will be committed automatically to this repo.
+### 📈 Analytics & Reporting
+- Sales analytics
+- Inventory turnover analysis
+- Revenue and profit tracking
+- Category-wise performance
+- Channel-wise sales analysis
 
-**Use your preferred IDE**
+### 👥 User Management
+- Role-based access control (Admin, Staff)
+- User authentication and authorization
+- Customizable user permissions
+- User activity tracking
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+### ⚙️ System Features
+- Dark/Light theme support
+- Multi-language support
+- Real-time updates
+- Responsive design
+- Modern UI with shadcn/ui
+- Secure authentication
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+## 🛠️ Technology Stack
 
-Follow these steps:
+- **Frontend**:
+  - React
+  - TypeScript
+  - Tailwind CSS
+  - shadcn/ui components
+  - Framer Motion for animations
+  - React Query for data fetching
+  - Zustand for state management
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+- **Backend**:
+  - MongoDB for database
+  - Express.js server
+  - Node.js runtime
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+- **Authentication & Security**:
+  - JWT based authentication
+  - Role-based access control
+  - Secure password hashing with bcrypt
 
-# Step 3: Install the necessary dependencies.
-npm i
+- **Payment Processing**:
+  - Stripe integration
+  - Secure payment handling
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+## 🚀 Getting Started
+
+### Prerequisites
+- Node.js (v14 or higher)
+- npm or yarn
+- MongoDB instance
+
+### Installation
+
+1. Clone the repository:
+```bash
+git clone <repository-url>
 ```
 
-**Edit a file directly in GitHub**
+2. Navigate to project directory:
+```bash
+cd invenhub
+```
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+3. Install dependencies:
+```bash
+npm install
+```
 
-**Use GitHub Codespaces**
+4. Set up environment variables:
+Create a `.env` file in the root directory with the following variables:
+```env
+MONGODB_URI=your_mongodb_connection_string
+STRIPE_SECRET_KEY=your_stripe_secret_key
+```
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with .
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/826079be-e09b-4c7e-909e-46ac05ab397e) and click on Share -> Publish.
-
-## I want to use a custom domain - is that possible?
-
-We don't support custom domains (yet). If you want to deploy your project under your own domain then we recommend using Netlify. Visit our docs for more details: [Custom domains](https://docs.lovable.dev/tips-tricks/custom-domain/)
-
-## MongoDB Integration
-
-This project uses MongoDB for data storage. The integration is set up as follows:
-
-### Connection Setup
-
-1. MongoDB connection details are stored in the `.env` file
-2. Connection is managed by the `src/lib/db.ts` module
-3. The application automatically connects to MongoDB when started
-
-### Data Models
-
-The following MongoDB models are implemented:
-- Product - for inventory items
-- Supplier - for product suppliers
-- PurchaseOrder - for ordering products from suppliers
-
-### Database Initialization
-
-To initialize the database with sample data, run:
-
+5. Initialize the database with sample data:
 ```bash
 npm run init-db
 ```
 
-This will populate the database with sample products and suppliers.
-
-### Environment Variables
-
-Make sure to set up your MongoDB connection string in the `.env` file:
-
+6. Start the development server:
+```bash
+npm run dev
 ```
-MONGODB_URI=mongodb+srv://<username>:<password>@<cluster>.mongodb.net/?retryWrites=true&w=majority
-```
+
+The application will be available at `http://localhost:5173`
+
+## 🔐 Environment Variables
+
+- `MONGODB_URI`: MongoDB connection string
+- `STRIPE_SECRET_KEY`: Stripe secret key for payment processing
+- `JWT_SECRET`: Secret key for JWT token generation
+- `NODE_ENV`: Application environment (development/production)
+
+## 📚 Documentation
+
+For detailed documentation about the project's features and API endpoints, visit our [documentation](https://docs.lovable.dev/).
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🌐 Deployment
+
+The project can be deployed using:
+- Lovable platform (recommended)
+- Custom domain using Netlify
+- Other hosting platforms of your choice
+
+For deployment instructions, check our [deployment guide](https://docs.lovable.dev/tips-tricks/custom-domain/).
+
+## 🆘 Support
+
+For support and questions, please:
+- Visit our [documentation](https://docs.lovable.dev/)
+- Open an issue in the repository
+- Contact support at support@lovable.dev
