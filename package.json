@@ -13,6 +13,7 @@
     "preview": "vite preview",
     "init-db": "node scripts/init-database.js",
     "start": "node start-server.js"
+    "vercel-build": "npm run build"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
