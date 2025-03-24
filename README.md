@@ -98,6 +98,7 @@ npm install
 Create a `.env` file in the root directory with the following variables:
 ```env
 VITE_MONGODB_URI=your_mongodb_connection_string
+MONGODB_URI=your_mongodb_connection_string
 ```
 
 5. Start the development server:
