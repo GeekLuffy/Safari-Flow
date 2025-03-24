@@ -6,6 +6,7 @@ import dotenv from 'dotenv';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import path from 'path';
 
 // Load environment variables
 dotenv.config(); // Load from .env
@@ -29,8 +30,10 @@ const __dirname = dirname(__filename);
 app.use(cors());
 app.use(express.json());
 
-// Serve static files from the dist directory after build
-app.use(express.static(join(__dirname, 'dist')));
+// Serve static files in production
+if (process.env.NODE_ENV === 'production') {
+  app.use(express.static(path.join(__dirname, 'dist')));
+}
 
 // Connect to MongoDB
 const MONGODB_URI = process.env.VITE_MONGODB_URI;
@@ -1692,37 +1695,24 @@ app.delete('/api/suppliers/:id', async (req, res) => {
   }
 });
 
-// For all other routes, serve the React app
-app.get('*', (req, res) => {
-  res.sendFile(join(__dirname, 'dist', 'index.html'));
+// Handle SPA routing in production
+if (process.env.NODE_ENV === 'production') {
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+  });
+}
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ message: 'Something broke!', error: err.message });
 });
 
-// Start server
-app.listen(PORT, async () => {
-  console.log(`Server is running on port ${PORT}`);
-  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-  
-  // Create default supplier
-  const defaultSupplier = await createDefaultSupplier();
-  
-  // Set up periodic checks
-  setTimeout(() => {
-    const checkForLowStock = async () => {
-      try {
-        console.log('Performing scheduled check for low stock items');
-        const products = await Product.find();
-        if (NotificationService) {
-          await NotificationService.checkStockLevels(products);
-        }
-      } catch (error) {
-        console.error('Error checking for low stock:', error);
-      }
-    };
-    
-    // Run initial check
-    checkForLowStock();
-    
-    // Schedule regular checks (every hour)
-    setInterval(checkForLowStock, 60 * 60 * 1000);
-  }, 5 * 60 * 1000);
-}); 
+export default app;
+
+// Only listen if not running on Vercel
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+  });
+} 
