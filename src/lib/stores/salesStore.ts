@@ -218,77 +218,52 @@ export const useSalesStore = create<SalesState>()(
       
       getMonthlySalesData: () => {
         const { sales } = get();
-        const months = [
-          'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-          'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-        ];
+        const monthlyData: Record<string, number> = {};
         
-        const monthlySales = months.map(month => ({ name: month, value: 0 }));
+        // Sort sales by date
+        const sortedSales = [...sales].sort((a, b) => 
+          ensureDateObject(a.timestamp).getTime() - ensureDateObject(b.timestamp).getTime()
+        );
         
-        sales.forEach(sale => {
-          // Ensure timestamp is a Date object before calling getMonth()
-          const timestamp = ensureDateObject(sale.timestamp);
-          const month = timestamp.getMonth();
-          monthlySales[month].value += sale.totalAmount;
+        sortedSales.forEach(sale => {
+          const date = ensureDateObject(sale.timestamp);
+          const monthKey = date.toISOString().slice(0, 10); // YYYY-MM-DD format
+          monthlyData[monthKey] = (monthlyData[monthKey] || 0) + sale.totalAmount;
         });
         
-        return monthlySales;
+        return Object.entries(monthlyData).map(([name, value]) => ({
+          name,
+          value
+        }));
       },
       
-      // Get 24-hour sales data
       getHourlySalesData: () => {
         const { sales } = get();
-        const hourlyData: ChartData[] = [];
+        const hourlyData: Record<string, number> = {};
         
-        // Create 24 hours of data
+        // Initialize all 24 hours with 0
         for (let i = 0; i < 24; i++) {
-          hourlyData.push({
-            name: i.toString().padStart(2, '0') + ':00',
-            value: 0
-          });
+          hourlyData[i.toString().padStart(2, '0')] = 0;
         }
         
-        // Get the current date and yesterday's date for filtering
+        // Get sales for the last 24 hours
         const now = new Date();
-        const yesterday = new Date(now);
-        yesterday.setDate(yesterday.getDate() - 1);
+        const last24Hours = new Date(now.getTime() - 24 * 60 * 60 * 1000);
         
-        // Filter sales within the last 24 hours
-        const recentSales = sales.filter(sale => {
-          const saleDate = ensureDateObject(sale.timestamp);
-          return saleDate >= yesterday && saleDate <= now;
-        });
-        
-        // Sum sales by hour
-        recentSales.forEach(sale => {
-          const saleDate = ensureDateObject(sale.timestamp);
-          const hour = saleDate.getHours();
-          hourlyData[hour].value += sale.totalAmount;
-        });
-        
-        // If no sales in the past 24 hours, generate sample data
-        const totalValue = hourlyData.reduce((sum, item) => sum + item.value, 0);
-        if (totalValue === 0) {
-          // Create a realistic 24-hour sales pattern with peak shopping hours
-          const peakHours = [11, 12, 13, 14, 17, 18, 19, 20]; // Lunch and evening peaks
-          const moderateHours = [9, 10, 15, 16, 21]; // Morning and afternoon moderate traffic
-          const lowHours = [8, 22, 23]; // Early morning and late evening
-          const veryLowHours = [0, 1, 2, 3, 4, 5, 6, 7]; // Overnight hours
-          
-          hourlyData.forEach((item, index) => {
-            if (peakHours.includes(index)) {
-              item.value = Math.floor(Math.random() * 1500) + 2000; // 2000-3500 range
-            } else if (moderateHours.includes(index)) {
-              item.value = Math.floor(Math.random() * 1000) + 1000; // 1000-2000 range
-            } else if (lowHours.includes(index)) {
-              item.value = Math.floor(Math.random() * 800) + 200; // 200-1000 range
-            } else if (veryLowHours.includes(index)) {
-              item.value = Math.floor(Math.random() * 200); // 0-200 range
-            }
+        sales
+          .filter(sale => ensureDateObject(sale.timestamp) >= last24Hours)
+          .forEach(sale => {
+            const date = ensureDateObject(sale.timestamp);
+            const hour = date.getHours().toString().padStart(2, '0');
+            hourlyData[hour] = (hourlyData[hour] || 0) + sale.totalAmount;
           });
-        }
         
-        return hourlyData;
+        return Object.entries(hourlyData)
+          .sort((a, b) => a[0].localeCompare(b[0])) // Sort by hour
+          .map(([name, value]) => ({
+            name,
+            value
+          }));
       },
       
       getProductPerformance: () => {

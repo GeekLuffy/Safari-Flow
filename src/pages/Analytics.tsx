@@ -54,9 +54,17 @@ const Analytics: React.FC = () => {
     let data: ChartData[] = [];
     
     if (timeFrame === '24h') {
-      data = salesStore.getHourlySalesData();
+      data = salesStore.getHourlySalesData().map(item => ({
+        ...item,
+        // Ensure name is a proper hour string (00-23)
+        name: String(parseInt(item.name)).padStart(2, '0')
+      }));
     } else {
-      data = salesStore.getMonthlySalesData();
+      data = salesStore.getMonthlySalesData().map(item => ({
+        ...item,
+        // Ensure name is a proper date string
+        name: new Date(item.name).toISOString()
+      }));
     }
     
     setSalesData(data);
@@ -152,22 +160,55 @@ const Analytics: React.FC = () => {
                         dataKey="name" 
                         tickFormatter={(value) => {
                           if (timeFrame === '24h') {
-                            return value; // Already in hour format
-                          } else {
-                            // Convert month number to month name
-                            return new Date(0, parseInt(value) - 1).toLocaleString('default', { month: 'short' });
+                            return `${value}:00`;
                           }
+                          try {
+                            const date = new Date(value);
+                            if (!isNaN(date.getTime())) {
+                              switch(timeFrame) {
+                                case '1m':
+                                  return date.toLocaleDateString('default', { day: '2-digit', month: 'short' });
+                                case '3m':
+                                case '1y':
+                                case 'ts':
+                                  return date.toLocaleDateString('default', { month: 'short', year: '2-digit' });
+                                default:
+                                  return date.toLocaleDateString();
+                              }
+                            }
+                          } catch (e) {
+                            console.error('Date formatting error:', e);
+                          }
+                          return value; // Fallback to original value if date parsing fails
                         }}
                       />
-                      <YAxis />
+                      <YAxis 
+                        tickFormatter={(value) => `₹${value.toLocaleString()}`}
+                      />
                       <Tooltip 
-                        formatter={(value: number) => [`$${value.toFixed(2)}`, 'Sales']}
+                        formatter={(value: number) => [`₹${value.toLocaleString()}`, 'Sales']}
                         labelFormatter={(label) => {
                           if (timeFrame === '24h') {
-                            return `Time: ${label}`;
-                          } else {
-                            return `Month: ${new Date(0, parseInt(label) - 1).toLocaleString('default', { month: 'long' })}`;
+                            return `Time: ${label}:00`;
                           }
+                          try {
+                            const date = new Date(label);
+                            if (!isNaN(date.getTime())) {
+                              switch(timeFrame) {
+                                case '1m':
+                                  return date.toLocaleDateString('default', { day: '2-digit', month: 'long', year: 'numeric' });
+                                case '3m':
+                                case '1y':
+                                case 'ts':
+                                  return date.toLocaleDateString('default', { month: 'long', year: 'numeric' });
+                                default:
+                                  return date.toLocaleDateString();
+                              }
+                            }
+                          } catch (e) {
+                            console.error('Label formatting error:', e);
+                          }
+                          return `Date: ${label}`; // Fallback
                         }}
                       />
                       <Area type="monotone" dataKey="value" stroke="#8884d8" fill="#8884d8" />
@@ -262,59 +303,81 @@ const Analytics: React.FC = () => {
             <Card>
               <CardHeader>
                 <CardTitle>Performance Comparison</CardTitle>
-                <CardDescription>
-                  {timeFrame === '24h' 
-                    ? 'Comparing hourly sales with predicted targets'
-                    : 'Comparing monthly performance with targets'}
-                </CardDescription>
+                <CardDescription>Comparing actual vs predicted sales</CardDescription>
               </CardHeader>
               <CardContent>
-                {loading ? (
-                  <div className="flex items-center justify-center h-80">
-                    <Loader2 className="animate-spin h-8 w-8 text-primary" />
-                  </div>
-                ) : (
-                  <ResponsiveContainer width="100%" height={400}>
-                    <BarChart
-                      width={500}
-                      height={300}
-                      data={generatePredictions(salesData)}
-                      margin={{
-                        top: 5,
-                        right: 30,
-                        left: 20,
-                        bottom: 5,
-                      }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis 
-                        dataKey="name"
-                        tickFormatter={(value) => {
-                          if (timeFrame === '24h') {
-                            return value; // Already in hour format
-                          } else {
-                            // Convert month number to month name
+                <ResponsiveContainer width="100%" height={400}>
+                  <BarChart
+                    data={[...salesData, ...predictionData]}
+                    margin={{
+                      top: 20,
+                      right: 30,
+                      left: 20,
+                      bottom: 5,
+                    }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis 
+                      dataKey="name"
+                      tickFormatter={(value) => {
+                        if (timeFrame === '24h') {
+                          return value.padStart(2, '0') + ':00';
+                        } else {
+                          const date = new Date(value);
+                          if (isNaN(date.getTime())) {
                             return new Date(0, parseInt(value) - 1).toLocaleString('default', { month: 'short' });
                           }
-                        }}
-                      />
-                      <YAxis />
-                      <Tooltip 
-                        formatter={(value: number) => [`$${value.toFixed(2)}`, 'Sales']}
-                        labelFormatter={(label) => {
-                          if (timeFrame === '24h') {
-                            return `Time: ${label}`;
-                          } else {
+                          switch(timeFrame) {
+                            case '1m':
+                              return date.toLocaleDateString('default', { day: '2-digit', month: 'short' });
+                            case '3m':
+                            case '1y':
+                            case 'ts':
+                              return date.toLocaleDateString('default', { month: 'short', year: '2-digit' });
+                            default:
+                              return date.toLocaleDateString();
+                          }
+                        }
+                      }}
+                    />
+                    <YAxis 
+                      tickFormatter={(value) => `₹${value.toLocaleString()}`}
+                    />
+                    <Tooltip
+                      formatter={(value: number, name: string) => [
+                        `₹${value.toLocaleString()}`,
+                        name === 'value' ? 'Actual' : 'Predicted'
+                      ]}
+                      labelFormatter={(label) => {
+                        if (timeFrame === '24h') {
+                          return `Time: ${label.padStart(2, '0')}:00`;
+                        } else {
+                          const date = new Date(label);
+                          if (isNaN(date.getTime())) {
                             return `Month: ${new Date(0, parseInt(label) - 1).toLocaleString('default', { month: 'long' })}`;
                           }
-                        }}
-                      />
-                      <Legend />
-                      <Bar dataKey="value" name="Actual" fill="#8884d8" />
-                      <Bar dataKey="predicted" name="Predicted" fill="#82ca9d" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                )}
+                          switch(timeFrame) {
+                            case '1m':
+                              return date.toLocaleDateString('default', { day: '2-digit', month: 'long' });
+                            case '3m':
+                            case '1y':
+                            case 'ts':
+                              return date.toLocaleDateString('default', { month: 'long', year: 'numeric' });
+                            default:
+                              return date.toLocaleDateString();
+                          }
+                        }
+                      }}
+                      contentStyle={{
+                        borderRadius: '8px',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                        border: 'none'
+                      }}
+                    />
+                    <Bar dataKey="value" fill="#0070F3" name="Actual" />
+                    <Bar dataKey="predicted" fill="#10B981" name="Predicted" />
+                  </BarChart>
+                </ResponsiveContainer>
               </CardContent>
             </Card>
           </div>
