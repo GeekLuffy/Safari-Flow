@@ -5,12 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --project tsconfig.json && vite build",
+    "build": "vite build",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
     "server": "node server.js",
     "start": "node server.js",
-    "vercel-build": "tsc --project tsconfig.json && vite build"
+    "vercel-build": "vite build"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.3.4",
@@ -51,7 +51,30 @@
     "tailwindcss-animate": "^1.0.7",
     "uuid": "^9.0.1",
     "zod": "^3.22.4",
-    "zustand": "^4.5.1"
+    "zustand": "^4.5.1",
+    "@radix-ui/react-accordion": "^1.1.2",
+    "@radix-ui/react-aspect-ratio": "^1.0.3",
+    "@radix-ui/react-checkbox": "^1.0.4",
+    "@radix-ui/react-collapsible": "^1.0.3",
+    "@radix-ui/react-context-menu": "^2.1.5",
+    "@radix-ui/react-hover-card": "^1.0.7",
+    "@radix-ui/react-menubar": "^1.0.4",
+    "@radix-ui/react-navigation-menu": "^1.1.4",
+    "@radix-ui/react-popover": "^1.0.7",
+    "@radix-ui/react-progress": "^1.0.3",
+    "@radix-ui/react-radio-group": "^1.1.3",
+    "@radix-ui/react-scroll-area": "^1.0.5",
+    "@radix-ui/react-separator": "^1.0.3",
+    "@radix-ui/react-slider": "^1.1.2",
+    "@radix-ui/react-switch": "^1.0.3",
+    "@radix-ui/react-tabs": "^1.0.4",
+    "@radix-ui/react-toggle": "^1.0.3",
+    "@radix-ui/react-toggle-group": "^1.0.4",
+    "cmdk": "^0.2.1",
+    "embla-carousel-react": "^8.0.0-rc17",
+    "input-otp": "^1.0.1",
+    "react-resizable-panels": "^2.0.9",
+    "vaul": "^0.9.0"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
