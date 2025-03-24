@@ -43,10 +43,55 @@ if (!MONGODB_URI) {
 // Configure mongoose
 mongoose.set('strictQuery', false);
 
-mongoose
-  .connect(MONGODB_URI)
-  .then(() => console.log('Connected to MongoDB successfully'))
-  .catch((err) => console.error('Failed to connect to MongoDB:', err));
+const connectWithRetry = async () => {
+  const options = {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+    serverSelectionTimeoutMS: 5000,
+    socketTimeoutMS: 45000,
+    family: 4,
+    maxPoolSize: 10
+  };
+
+  try {
+    if (mongoose.connection.readyState === 1) {
+      console.log('MongoDB is already connected');
+      return;
+    }
+
+    await mongoose.connect(MONGODB_URI, options);
+    console.log('Connected to MongoDB successfully');
+  } catch (err) {
+    console.error('MongoDB connection error:', err);
+    // In production (Vercel), don't retry as it's serverless
+    if (process.env.VERCEL) {
+      console.error('Running on Vercel - not retrying connection');
+      throw err;
+    }
+    console.log('Retrying connection in 5 seconds...');
+    setTimeout(connectWithRetry, 5000);
+  }
+};
+
+// Handle disconnection
+mongoose.connection.on('disconnected', () => {
+  console.log('MongoDB disconnected!');
+  if (!process.env.VERCEL) {
+    console.log('Attempting to reconnect...');
+    connectWithRetry();
+  }
+});
+
+// Handle connection errors
+mongoose.connection.on('error', (err) => {
+  console.error('MongoDB connection error:', err);
+  if (!process.env.VERCEL) {
+    connectWithRetry();
+  }
+});
+
+// Initial connection
+await connectWithRetry();
 
 // User Schema
 const userSchema = new mongoose.Schema({
@@ -1224,39 +1269,80 @@ app.get('/api/sales/analytics/summary', async (req, res) => {
 // Get all purchase orders
 app.get('/api/purchase-orders', async (req, res) => {
   try {
-    const purchaseOrders = await PurchaseOrder.find()
-      .populate('supplierId', 'name')
-      .populate('products.productId', 'name category price barcode stock')
-      .lean();
+    // First get all purchase orders without population
+    const purchaseOrders = await PurchaseOrder.find().lean();
 
-    const formattedOrders = purchaseOrders.map(order => ({
-      id: order._id,
-      supplierId: order.supplierId?._id || null,
-      supplierName: order.supplierId?.name || 'Default Supplier',
+    // Get all unique supplier IDs
+    const supplierIds = [...new Set(purchaseOrders.map(order => order.supplierId))];
+
+    // Fetch all relevant suppliers in one query
+    const suppliers = await Supplier.find({
+      _id: { $in: supplierIds.filter(id => mongoose.Types.ObjectId.isValid(id)) }
+    }).lean();
+
+    // Create a map of supplier IDs to names
+    const supplierMap = new Map(suppliers.map(s => [s._id.toString(), s.name]));
+
+    // Format orders with supplier names
+    const formattedOrders = purchaseOrders.map(order => {
+      // Get supplier name from map or use default
+      const supplierName = supplierMap.get(order.supplierId?.toString()) || 'Default Supplier';
+
+      return {
+        id: order._id,
+        supplierId: order.supplierId,
+        supplierName: supplierName,
+        products: order.products.map(item => ({
+          productId: item.productId || 'unknown',
+          productName: 'Product Name', // We'll populate this in the next step
+          quantity: item.quantity,
+          unitPrice: item.unitPrice
+        })),
+        status: order.status,
+        totalAmount: order.totalAmount,
+        orderDate: order.orderDate,
+        expectedDeliveryDate: order.expectedDeliveryDate,
+        deliveredDate: order.deliveredDate,
+        createdAt: order.createdAt,
+        updatedAt: order.updatedAt
+      };
+    });
+
+    // Get all unique product IDs
+    const productIds = [...new Set(purchaseOrders.flatMap(order => 
+      order.products.map(product => product.productId)
+    ))];
+
+    // Fetch all products in one query
+    const products = await Product.find({
+      _id: { $in: productIds.filter(id => mongoose.Types.ObjectId.isValid(id)) }
+    }).lean();
+
+    // Create a map of product IDs to names
+    const productMap = new Map(products.map(p => [p._id.toString(), p.name]));
+
+    // Add product names to formatted orders
+    const completeOrders = formattedOrders.map(order => ({
+      ...order,
       products: order.products.map(item => ({
-        productId: item.productId?._id || 'unknown',
-        productName: item.productId?.name || 'Product Not Found',
-        quantity: item.quantity,
-        unitPrice: item.unitPrice
-      })),
-      status: order.status,
-      totalAmount: order.totalAmount,
-      orderDate: order.orderDate,
-      expectedDeliveryDate: order.expectedDeliveryDate,
-      deliveredDate: order.deliveredDate,
-      createdAt: order.createdAt,
-      updatedAt: order.updatedAt
+        ...item,
+        productName: productMap.get(item.productId?.toString()) || 'Unknown Product'
+      }))
     }));
 
     // Sort orders by date (newest first)
-    const sortedOrders = formattedOrders.sort((a, b) => 
+    const sortedOrders = completeOrders.sort((a, b) => 
       new Date(b.orderDate) - new Date(a.orderDate)
     );
 
     res.json(sortedOrders);
   } catch (error) {
     console.error('Error getting purchase orders:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(500).json({ 
+      message: 'Server error', 
+      error: error.message,
+      details: error.stack 
+    });
   }
 });
 
