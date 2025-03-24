@@ -53,7 +53,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
       <div className="flex-1 flex flex-col min-h-screen min-w-0">
         <Navbar toggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
         <main className="flex-1 pb-10 overflow-y-auto">
-          <div className="h-full py-6">
+          <div className="h-full">
             <PageTransition>{children}</PageTransition>
           </div>
         </main>
