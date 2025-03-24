@@ -81,9 +81,11 @@ const Auth: React.FC = () => {
                 <Package className="h-6 w-6 text-white" />
               </div>
             </div>
-            <CardTitle className="text-2xl">InvenHub</CardTitle>
-            <CardDescription>
-              Access the inventory management system
+            <CardTitle className="text-2xl">Safari-Flow</CardTitle>
+            <CardDescription className="flex flex-col">
+              <span>Access the Inventory Management System</span>
+              <span>Made for Jungle Safari Naya Raipur</span>
+              <span>by Team Orbit</span>
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -157,14 +159,6 @@ const Auth: React.FC = () => {
                     {isLoginLoading ? "Signing in..." : "Sign In"}
                   </Button>
                 </form>
-                <div className="mt-4 text-center text-sm text-muted-foreground">
-                  <p>Demo Accounts:</p>
-                  <p className="mt-1">
-                    Admin: admin@example.com<br />
-                    Staff: staff@example.com<br />
-                    Password: password
-                  </p>
-                </div>
               </TabsContent>
               
               {/* Signup Tab */}

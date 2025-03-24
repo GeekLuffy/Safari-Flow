@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -110,8 +109,12 @@ const AuthForm: React.FC = () => {
         <div className="inline-flex items-center justify-center h-12 w-12 rounded-lg bg-primary mb-4">
           <span className="font-bold text-white text-lg">I</span>
         </div>
-        <h1 className="text-2xl font-bold">InvenHub</h1>
-        <p className="text-muted-foreground mt-1">Advanced inventory management</p>
+        <h1 className="text-2xl font-bold">SafariFlow</h1>
+        <div className="text-muted-foreground mt-1 flex flex-col">
+          <span>Access the Inventory Management System</span>
+          <span>Made for Jungle Safari Naya Raipur</span>
+          <span>by Team Orbit</span>
+        </div>
       </div>
       
       {showOTP ? (
