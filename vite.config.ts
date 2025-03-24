@@ -28,7 +28,7 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          vendor: ['react', 'react-dom', 'react-router-dom', '@tanstack/react-query'],
+          vendor: ['react', 'react-dom', 'react-router-dom', '@tanstack/react-query', 'framer-motion'],
           ui: ['@radix-ui/react-alert-dialog', '@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu'],
         },
       },
