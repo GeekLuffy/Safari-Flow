@@ -1,5 +1,6 @@
 # SafariFlow - Inventory Management System
 
+Safari-Flow.vercel.app
 A modern, feature-rich inventory management system built with React and MongoDB. SafariFlow helps businesses manage their inventory, track sales, analyze performance, and streamline operations.
 
 ## 🌟 Features
