@@ -26,12 +26,45 @@ export default defineConfig({
     sourcemap: true,
     emptyOutDir: true,
     rollupOptions: {
+      external: [],
       output: {
         manualChunks: {
-          vendor: ['react', 'react-dom', 'react-router-dom', '@tanstack/react-query', 'framer-motion'],
-          ui: ['@radix-ui/react-alert-dialog', '@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu'],
-        },
-      },
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'ui-vendor': [
+            '@radix-ui/react-alert-dialog',
+            '@radix-ui/react-dialog',
+            '@radix-ui/react-dropdown-menu',
+            '@radix-ui/react-toast',
+            '@radix-ui/react-label',
+            '@radix-ui/react-select',
+            '@radix-ui/react-slot',
+            'framer-motion'
+          ],
+          'form-vendor': [
+            'react-hook-form',
+            '@hookform/resolvers',
+            'zod'
+          ],
+          'data-vendor': [
+            '@tanstack/react-query',
+            '@tanstack/react-query-devtools',
+            'axios'
+          ]
+        }
+      }
     },
   },
+  optimizeDeps: {
+    include: [
+      'react',
+      'react-dom',
+      'react-router-dom',
+      'framer-motion',
+      '@tanstack/react-query',
+      'axios',
+      'react-hook-form',
+      '@hookform/resolvers/zod',
+      'zod'
+    ]
+  }
 });
