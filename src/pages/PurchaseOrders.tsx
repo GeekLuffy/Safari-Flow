@@ -150,7 +150,8 @@ const PurchaseOrders: React.FC = () => {
                 <TableRow>
                   <TableHead>Order ID</TableHead>
                   <TableHead>Supplier</TableHead>
-                  <TableHead>Order Date</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Time</TableHead>
                   <TableHead>Expected Delivery</TableHead>
                   <TableHead>Items</TableHead>
                   <TableHead>Total</TableHead>
@@ -164,10 +165,19 @@ const PurchaseOrders: React.FC = () => {
                   .map((order) => (
                     <TableRow key={order.id}>
                       <TableCell className="font-medium">{order.id.substring(0, 8)}</TableCell>
-                      <TableCell>{order.supplierId}</TableCell>
-                      <TableCell>{formatDate(order.orderDate)}</TableCell>
+                      <TableCell>{order.supplierName || 'Unknown Supplier'}</TableCell>
+                      <TableCell>{new Date(order.orderDate).toLocaleDateString()}</TableCell>
+                      <TableCell>{new Date(order.orderDate).toLocaleTimeString()}</TableCell>
                       <TableCell>{formatDate(order.expectedDeliveryDate)}</TableCell>
-                      <TableCell>{order.products.length} items</TableCell>
+                      <TableCell>
+                        <div className="space-y-1">
+                          {order.products.map((product, idx) => (
+                            <div key={idx} className="text-sm">
+                              {product.quantity}x {product.productName || 'Unknown Product'}
+                            </div>
+                          ))}
+                        </div>
+                      </TableCell>
                       <TableCell>₹{order.totalAmount.toLocaleString()}</TableCell>
                       <TableCell>{getStatusBadge(order.status)}</TableCell>
                       <TableCell>

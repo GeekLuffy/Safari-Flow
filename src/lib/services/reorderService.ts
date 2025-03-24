@@ -3,109 +3,97 @@ import { useNotificationStore } from '../stores/notificationStore';
 import { createPurchaseOrder } from '@/api/purchaseOrder';
 import { updateProduct, getAllProducts } from '@/api/product';
 
+// Keep track of last reorder times
+const lastReorderTimes = new Map<string, number>();
+const REORDER_COOLDOWN = 30 * 60 * 1000; // 30 minutes cooldown
+
 /**
  * Set up a timer to check for auto-reordering products periodically
  * This function should be called when the app initializes
  */
 export const setupAutoReorderSchedule = () => {
-  // Check for auto-reorder needs every 5 minutes
-  console.log("Setting up auto-reorder schedule check");
+  let isChecking = false;
   
-  // Initial check after 10 seconds (to allow app to fully load)
-  setTimeout(async () => {
-    console.log("Running initial auto-reorder check");
+  const checkForReorders = async () => {
+    if (isChecking) {
+      console.log("Skipping reorder check - previous check still in progress");
+      return;
+    }
+    
     try {
+      isChecking = true;
       const products = await getAllProducts();
       await ReorderService.checkAndReorderProducts(products);
     } catch (error) {
-      console.error("Failed to run initial auto-reorder check:", error);
+      console.error("Failed to run auto-reorder check:", error);
+    } finally {
+      isChecking = false;
     }
-  }, 10000);
+  };
   
-  // Set up recurring checks
-  setInterval(async () => {
-    console.log("Running scheduled auto-reorder check");
-    try {
-      const products = await getAllProducts();
-      await ReorderService.checkAndReorderProducts(products);
-    } catch (error) {
-      console.error("Failed to run scheduled auto-reorder check:", error);
-    }
-  }, 5 * 60 * 1000); // Every 5 minutes
+  // Initial check after 1 minute
+  setTimeout(checkForReorders, 60 * 1000);
+  
+  // Check every 15 minutes
+  setInterval(checkForReorders, 15 * 60 * 1000);
 };
 
 export const ReorderService = {
   /**
-   * Check if any products need reordering and create purchase orders for them
+   * Check products and create purchase orders for those that need restocking
    */
   checkAndReorderProducts: async (products: Product[]) => {
     if (!products || products.length === 0) return;
     
-    console.log("Checking for products that need reordering...");
-    console.log(`Total products to check: ${products.length}`);
+    const now = Date.now();
+    const supplierGroups: { [key: string]: Product[] } = {};
     
     // Filter products that need reordering
-    const productsToReorder = products.filter(product => {
-      const threshold = product.reorderLevel || 5;
-      const needsReorder = product.autoReorder && 
-                           product.stock <= threshold && 
-                           product.targetStockLevel && 
-                           product.targetStockLevel > product.stock &&
-                           product.supplier; // Must have a supplier to reorder
+    products.forEach(product => {
+      if (!product.autoReorder || !product.targetStockLevel || product.targetStockLevel <= 0) return;
       
-      if (product.autoReorder) {
-        console.log(`Product ${product.name}: autoReorder=${product.autoReorder}, stock=${product.stock}, threshold=${threshold}, targetLevel=${product.targetStockLevel}, needsReorder=${needsReorder}`);
-      }
+      const lastReorderTime = lastReorderTimes.get(product.id) || 0;
+      const timeSinceLastReorder = now - lastReorderTime;
       
-      return needsReorder;
-    });
-    
-    console.log(`Found ${productsToReorder.length} products that need reordering`);
-    
-    if (productsToReorder.length === 0) return;
-    
-    // Group products by supplier
-    const supplierGroups: Record<string, Product[]> = {};
-    productsToReorder.forEach(product => {
-      const supplier = product.supplier as string; // We've already filtered out undefined suppliers
-      if (!supplierGroups[supplier]) {
-        supplierGroups[supplier] = [];
+      if (product.stock < product.reorderLevel && timeSinceLastReorder >= REORDER_COOLDOWN) {
+        const supplierId = product.supplier?.toString() || 'default';
+        if (!supplierGroups[supplierId]) {
+          supplierGroups[supplierId] = [];
+        }
+        supplierGroups[supplierId].push(product);
+        lastReorderTimes.set(product.id, now);
       }
-      supplierGroups[supplier].push(product);
     });
     
     // Create purchase orders by supplier
-    for (const [supplier, products] of Object.entries(supplierGroups)) {
+    for (const [supplier, supplierProducts] of Object.entries(supplierGroups)) {
       try {
-        // Create the purchase order data
+        const orderProducts = supplierProducts.map(product => ({
+          productId: product.id,
+          quantity: product.targetStockLevel,
+          unitPrice: product.costPrice
+        }));
+        
         const purchaseOrderData = {
           supplierId: supplier,
-          products: products.map(product => ({
-            productId: product.id,
-            quantity: (product.targetStockLevel || 0) - product.stock,
-            unitPrice: product.costPrice
-          })),
+          products: orderProducts,
           status: 'pending',
-          totalAmount: products.reduce((total, product) => {
-            const quantity = (product.targetStockLevel || 0) - product.stock;
-            return total + (product.costPrice * quantity);
-          }, 0),
+          totalAmount: orderProducts.reduce((total, item) => 
+            total + (item.quantity * item.unitPrice), 0),
           orderDate: new Date(),
-          expectedDeliveryDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days from now
+          expectedDeliveryDate: new Date(now + 7 * 24 * 60 * 60 * 1000)
         };
         
-        console.log(`Creating auto purchase order for supplier ${supplier} with ${products.length} products`);
+        await createPurchaseOrder(purchaseOrderData);
         
-        // Call API to create purchase order
-        const createdPO = await createPurchaseOrder(purchaseOrderData);
-        console.log(`Successfully created purchase order:`, createdPO);
-        
-        // Notify about auto-reorder
-        products.forEach(product => {
-          ReorderService.notifyAutoReorder(product, (product.targetStockLevel || 0) - product.stock);
+        // Send notifications
+        supplierProducts.forEach(product => {
+          ReorderService.notifyAutoReorder(product, product.targetStockLevel);
         });
       } catch (error) {
         console.error('Failed to create auto purchase order:', error);
+        // Reset reorder times for failed products
+        supplierProducts.forEach(product => lastReorderTimes.delete(product.id));
       }
     }
   },
@@ -115,11 +103,10 @@ export const ReorderService = {
    */
   notifyAutoReorder: (product: Product, quantity: number) => {
     const { addNotification } = useNotificationStore.getState();
-    
     addNotification({
       type: 'info',
       title: 'Auto Reorder Initiated',
-      message: `${product.name}: Ordered ${quantity} units to restock to ${product.targetStockLevel} units`,
+      message: `${product.name}: Ordered ${quantity} units (Standard Order Quantity)`,
       link: '/purchase-orders'
     });
   },
@@ -139,7 +126,7 @@ export const ReorderService = {
         // Set target to reorderLevel * 2 or at least 10 units
         const newTargetLevel = Math.max((product.reorderLevel || 5) * 2, 10);
         updateData.targetStockLevel = newTargetLevel;
-        console.log(`Setting target stock level to ${newTargetLevel} for product ${product.name}`);
+        console.log(`Setting standard order quantity to ${newTargetLevel} for product ${product.name}`);
       }
       
       // Update the product in the database
@@ -171,7 +158,7 @@ export const ReorderService = {
   updateTargetStockLevel: async (product: Product, targetLevel: number): Promise<Product | null> => {
     try {
       if (targetLevel < 0) {
-        throw new Error('Target stock level cannot be negative');
+        throw new Error('Standard order quantity cannot be negative');
       }
       
       // Update the product in the database
@@ -181,7 +168,7 @@ export const ReorderService = {
       
       return updatedProduct;
     } catch (error) {
-      console.error('Failed to update target stock level:', error);
+      console.error('Failed to update standard order quantity:', error);
       return null;
     }
   }

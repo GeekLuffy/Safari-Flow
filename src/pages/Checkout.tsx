@@ -120,14 +120,6 @@ const CheckoutPage: React.FC = () => {
         timestamp: savedSale.timestamp || new Date()
       });
       
-      // Create notifications for the transaction
-      NotificationService.notifyNewTransaction(total, saleData.products.length);
-      
-      // Check for low stock notifications after a successful sale
-      if (channel === 'in-store') {
-        NotificationService.notifyStockUpdate(saleData.products.length);
-      }
-      
       return savedSale;
     } catch (error) {
       console.error('Error processing sale:', error);

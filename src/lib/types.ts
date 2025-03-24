@@ -72,8 +72,10 @@ export interface Supplier {
 export interface PurchaseOrder {
   id: string;
   supplierId: string;
+  supplierName: string;
   products: {
     productId: string;
+    productName: string;
     quantity: number;
     unitPrice: number;
   }[];

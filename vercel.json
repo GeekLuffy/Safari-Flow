@@ -6,8 +6,9 @@
             "use": "@vercel/node"
         },
         {
-            "src": "dist/**",
-            "use": "@vercel/static"
+            "src": "package.json",
+            "use": "@vercel/static-build",
+            "config": { "distDir": "dist" }
         }
     ],
     "routes": [
@@ -23,5 +24,8 @@
             "src": "/(.*)",
             "dest": "dist/index.html"
         }
-    ]
+    ],
+    "env": {
+        "VITE_MONGODB_URI": "@mongodb_uri"
+    }
 }

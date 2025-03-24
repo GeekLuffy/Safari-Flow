@@ -178,10 +178,6 @@ const BillingSystem: React.FC = () => {
           timestamp: new Date()
         });
         
-        // Generate notifications
-        NotificationService.notifyNewTransaction(total, billItems.length);
-        NotificationService.notifyStockUpdate(billItems.length);
-        
         // Refresh products to get updated stock levels
         refetchProducts();
         

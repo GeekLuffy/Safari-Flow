@@ -40,6 +40,9 @@ if (!MONGODB_URI) {
   process.exit(1);
 }
 
+// Configure mongoose
+mongoose.set('strictQuery', false);
+
 mongoose
   .connect(MONGODB_URI)
   .then(() => console.log('Connected to MongoDB successfully'))
@@ -240,7 +243,8 @@ const Sale = mongoose.model('Sale', saleSchema);
 // Purchase Order Schema
 const purchaseOrderSchema = new mongoose.Schema({
   supplierId: {
-    type: String,
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Supplier',
     required: true
   },
   products: [{
@@ -1221,29 +1225,20 @@ app.get('/api/sales/analytics/summary', async (req, res) => {
 app.get('/api/purchase-orders', async (req, res) => {
   try {
     const purchaseOrders = await PurchaseOrder.find()
-      .populate('products.productId', 'name category price barcode stock');
-    
-    res.json(purchaseOrders.map(order => ({
+      .populate('supplierId', 'name')
+      .populate('products.productId', 'name category price barcode stock')
+      .lean();
+
+    const formattedOrders = purchaseOrders.map(order => ({
       id: order._id,
-      supplierId: order.supplierId,
-      products: order.products.map(item => {
-        // Check if product exists before accessing its properties
-        if (!item.productId) {
-          return {
-            productId: 'unknown',
-            productName: 'Product Not Found',
-            quantity: item.quantity,
-            unitPrice: item.unitPrice
-          };
-        }
-        
-        return {
-          productId: item.productId._id,
-          productName: item.productId.name,
-          quantity: item.quantity,
-          unitPrice: item.unitPrice
-        };
-      }),
+      supplierId: order.supplierId?._id || null,
+      supplierName: order.supplierId?.name || 'Default Supplier',
+      products: order.products.map(item => ({
+        productId: item.productId?._id || 'unknown',
+        productName: item.productId?.name || 'Product Not Found',
+        quantity: item.quantity,
+        unitPrice: item.unitPrice
+      })),
       status: order.status,
       totalAmount: order.totalAmount,
       orderDate: order.orderDate,
@@ -1251,7 +1246,14 @@ app.get('/api/purchase-orders', async (req, res) => {
       deliveredDate: order.deliveredDate,
       createdAt: order.createdAt,
       updatedAt: order.updatedAt
-    })));
+    }));
+
+    // Sort orders by date (newest first)
+    const sortedOrders = formattedOrders.sort((a, b) => 
+      new Date(b.orderDate) - new Date(a.orderDate)
+    );
+
+    res.json(sortedOrders);
   } catch (error) {
     console.error('Error getting purchase orders:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
@@ -1310,6 +1312,25 @@ app.post('/api/purchase-orders', async (req, res) => {
   try {
     const orderData = req.body;
     
+    // First check for existing pending or ordered purchase orders for the same product
+    const productIds = orderData.products.map(p => p.productId);
+    const existingOrders = await PurchaseOrder.find({
+      status: { $in: ['pending', 'ordered'] },
+      'products.productId': { $in: productIds }
+    });
+
+    if (existingOrders.length > 0) {
+      return res.status(409).json({
+        message: 'An order already exists for one or more of these products',
+        existingOrders: existingOrders.map(order => ({
+          id: order._id,
+          status: order.status,
+          orderDate: order.orderDate
+        }))
+      });
+    }
+    
+    // Continue with order creation if no existing orders found
     // Validate product IDs before creating purchase order
     if (orderData.products && Array.isArray(orderData.products)) {
       const validatedProducts = [];
@@ -1593,12 +1614,12 @@ app.get('*', (req, res) => {
 // Start server
 app.listen(PORT, async () => {
   console.log(`Server is running on port ${PORT}`);
+  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
   
   // Create default supplier
   const defaultSupplier = await createDefaultSupplier();
   
-  // Set up a periodic check for low stock items (every hour)
-  // First check after 5 minutes to give the system time to initialize
+  // Set up periodic checks
   setTimeout(() => {
     const checkForLowStock = async () => {
       try {
