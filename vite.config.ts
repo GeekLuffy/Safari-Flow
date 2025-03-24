@@ -1,6 +1,12 @@
-import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
-import path from "path";
+/// <reference types="vite/client" />
+
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import { fileURLToPath } from 'url';
+import { dirname, resolve } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -18,8 +24,8 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "./src"),
-    },
+      '@': resolve(__dirname, './src')
+    }
   },
   build: {
     outDir: 'dist',
@@ -31,15 +37,9 @@ export default defineConfig({
         manualChunks: {
           'react-vendor': ['react', 'react-dom', 'react-router-dom'],
           'ui-vendor': [
-            '@radix-ui/react-alert-dialog',
-            '@radix-ui/react-dialog',
-            '@radix-ui/react-dropdown-menu',
-            '@radix-ui/react-toast',
-            '@radix-ui/react-label',
-            '@radix-ui/react-select',
-            '@radix-ui/react-slot',
             '@radix-ui/react-tooltip',
-            'framer-motion'
+            'framer-motion',
+            'sonner'
           ],
           'form-vendor': [
             'react-hook-form',
@@ -73,7 +73,9 @@ export default defineConfig({
       'zod',
       '@stripe/stripe-js',
       '@stripe/react-stripe-js',
-      '@radix-ui/react-tooltip'
+      '@radix-ui/react-tooltip',
+      'stripe',
+      'sonner'
     ]
   }
 });
