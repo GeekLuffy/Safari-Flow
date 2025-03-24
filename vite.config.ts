@@ -49,6 +49,11 @@ export default defineConfig({
             '@tanstack/react-query',
             '@tanstack/react-query-devtools',
             'axios'
+          ],
+          'payment-vendor': [
+            '@stripe/stripe-js',
+            '@stripe/react-stripe-js',
+            'stripe'
           ]
         }
       }
@@ -64,7 +69,9 @@ export default defineConfig({
       'axios',
       'react-hook-form',
       '@hookform/resolvers/zod',
-      'zod'
+      'zod',
+      '@stripe/stripe-js',
+      '@stripe/react-stripe-js'
     ]
   }
 });
