@@ -25,8 +25,5 @@
             "src": "/(.*)",
             "dest": "/index.html"
         }
-    ],
-    "env": {
-        "VITE_MONGODB_URI": "@mongodb_uri"
-    }
+    ]
 }
