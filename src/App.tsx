@@ -50,10 +50,12 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
     <div className="flex min-h-screen">
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       
-      <div className="flex-1 flex flex-col min-h-screen min-w-0 overflow-x-hidden">
+      <div className="flex-1 flex flex-col min-h-screen min-w-0">
         <Navbar toggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
         <main className="flex-1 pb-10 overflow-y-auto">
-          <PageTransition>{children}</PageTransition>
+          <div className="h-full">
+            <PageTransition>{children}</PageTransition>
+          </div>
         </main>
       </div>
     </div>

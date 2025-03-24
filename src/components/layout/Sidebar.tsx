@@ -79,7 +79,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       </AnimatePresence>
 
       <motion.aside
-        className="fixed top-0 left-0 z-50 h-screen w-72 border-r border-border/40 bg-background md:static md:z-0 overflow-hidden"
+        className="fixed top-0 left-0 z-50 h-screen w-72 border-r border-border/40 bg-background md:sticky md:top-0 md:z-0 overflow-hidden"
         variants={sidebarVariants}
         initial={false}
         animate={isOpen ? 'open' : 'closed'}
@@ -89,8 +89,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
         <div className="flex flex-col h-full p-4">
           <div className="flex items-center h-16 mb-6">
             <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
-                <span className="font-bold text-white text-lg">S</span>
+              <div className="h-8 w-8">
+                <img src="/Tiger Paw.png" alt="Safari-Flow Logo" className="h-full w-full object-contain" />
               </div>
               <span className="font-semibold text-xl text-foreground">SafariFlow</span>
             </div>

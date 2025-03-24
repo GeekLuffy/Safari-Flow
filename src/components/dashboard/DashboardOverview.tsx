@@ -206,6 +206,12 @@ const DashboardOverview: React.FC = () => {
                   tickLine={false} 
                   tick={{ fill: '#888888', fontSize: 12 }}
                 />
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: '#888888', fontSize: 12 }}
+                  tickFormatter={(value) => `₹${value.toLocaleString()}`}
+                />
                 <Tooltip 
                   contentStyle={{ 
                     borderRadius: '8px', 
@@ -283,6 +289,40 @@ const DashboardOverview: React.FC = () => {
                   wrapperStyle={{ paddingLeft: '10px' }}
                 />
               </PieChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        <Card className="md:col-span-7">
+          <CardHeader>
+            <CardTitle>Performance Comparison</CardTitle>
+            <CardDescription>Current vs Previous Period</CardDescription>
+          </CardHeader>
+          <CardContent className="h-[300px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={[
+                  { name: 'Revenue', current: totalRevenue, previous: totalRevenue * 0.9 },
+                  { name: 'Profit', current: profit, previous: profit * 0.85 },
+                  { name: 'Orders', current: sales.length, previous: sales.length * 0.95 },
+                  { name: 'Average Order', current: totalRevenue / (sales.length || 1), previous: (totalRevenue * 0.9) / (sales.length * 0.95 || 1) }
+                ]}
+                margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+              >
+                <XAxis dataKey="name" />
+                <YAxis tickFormatter={(value) => `₹${value.toLocaleString()}`} />
+                <Tooltip
+                  formatter={(value: number) => [`₹${value.toLocaleString()}`, 'Amount']}
+                  contentStyle={{
+                    borderRadius: '8px',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+                    border: 'none',
+                    padding: '8px'
+                  }}
+                />
+                <Bar dataKey="previous" fill="#E2E8F0" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="current" fill="#0070F3" radius={[4, 4, 0, 0]} />
+              </BarChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>

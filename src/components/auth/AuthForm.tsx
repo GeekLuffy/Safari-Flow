@@ -106,8 +106,8 @@ const AuthForm: React.FC = () => {
   return (
     <div className="max-w-sm w-full mx-auto">
       <div className="text-center mb-8">
-        <div className="inline-flex items-center justify-center h-12 w-12 rounded-lg bg-primary mb-4">
-          <span className="font-bold text-white text-lg">I</span>
+        <div className="inline-flex items-center justify-center mb-4">
+          <img src="/safari-flow-logo.png" alt="Safari-Flow Logo" className="h-16 w-16" />
         </div>
         <h1 className="text-2xl font-bold">SafariFlow</h1>
         <div className="text-muted-foreground mt-1 flex flex-col">

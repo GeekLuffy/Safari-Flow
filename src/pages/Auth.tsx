@@ -77,8 +77,8 @@ const Auth: React.FC = () => {
         <Card className="w-full border-2">
           <CardHeader className="space-y-1 text-center">
             <div className="flex justify-center mb-2">
-              <div className="h-12 w-12 rounded-lg bg-primary flex items-center justify-center">
-                <Package className="h-6 w-6 text-white" />
+              <div className="h-16 w-16 rounded-lg flex items-center justify-center">
+                <img src="/safari-flow-logo.png" alt="Safari-Flow Logo" className="h-16 w-16" />
               </div>
             </div>
             <CardTitle className="text-2xl">Safari-Flow</CardTitle>
