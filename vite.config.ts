@@ -38,6 +38,7 @@ export default defineConfig({
             '@radix-ui/react-label',
             '@radix-ui/react-select',
             '@radix-ui/react-slot',
+            '@radix-ui/react-tooltip',
             'framer-motion'
           ],
           'form-vendor': [
@@ -71,7 +72,8 @@ export default defineConfig({
       '@hookform/resolvers/zod',
       'zod',
       '@stripe/stripe-js',
-      '@stripe/react-stripe-js'
+      '@stripe/react-stripe-js',
+      '@radix-ui/react-tooltip'
     ]
   }
 });
