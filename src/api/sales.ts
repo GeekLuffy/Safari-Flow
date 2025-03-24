@@ -161,7 +161,7 @@ export async function getSaleById(id: string): Promise<Sale | null> {
 }
 
 // Create a new sale
-export async function createSale(saleData: Omit<Sale, 'id'>): Promise<Sale> {
+export async function createSale(saleData: Omit<Sale, 'id' | 'timestamp'>): Promise<Sale> {
   if (useFallbackMode) {
     console.log('Using fallback mode for creating sale');
     const newSale: Sale = {
@@ -173,27 +173,15 @@ export async function createSale(saleData: Omit<Sale, 'id'>): Promise<Sale> {
   }
   
   try {
-    console.log('Creating sale via API');
-    
-    // Transform the sale data for the API
-    const apiSaleData = {
-      ...saleData,
-      products: saleData.products.map(item => ({
-        product: item.product.id,
-        quantity: item.quantity,
-        priceAtSale: item.priceAtSale
-      }))
-    };
+    console.log('Creating sale via API with data:', saleData);
     
     const response = await fetch(`${API_BASE_URL}/sales`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(apiSaleData),
+      body: JSON.stringify(saleData),
     });
-    
-    console.log('Create Sale API response status:', response.status);
     
     if (!response.ok) {
       let errorMessage = 'Failed to create sale';
@@ -201,21 +189,16 @@ export async function createSale(saleData: Omit<Sale, 'id'>): Promise<Sale> {
         const errorData = await response.json();
         errorMessage = errorData.message || errorMessage;
       } catch (e) {
-        console.error('Failed to parse error response:', e);
+        // If parsing fails, use default error message
       }
-      
-      // If server error, switch to fallback mode
-      if (response.status >= 500) {
-        console.warn('Server error detected, switching to fallback mode');
-        useFallbackMode = true;
-        return createSale(saleData);
-      }
-      
       throw new Error(errorMessage);
     }
     
     const createdSale = await response.json();
-    return mapApiSaleToClientSale(createdSale);
+    return {
+      ...createdSale,
+      timestamp: new Date(createdSale.timestamp)
+    };
   } catch (error) {
     console.error('Error creating sale:', error);
     // If fetch failed (network error), switch to fallback

@@ -116,7 +116,8 @@ const productSchema = new mongoose.Schema({
   },
   supplier: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Supplier'
+    ref: 'Supplier',
+    default: null
   },
   imageUrl: String,
   autoReorder: {
@@ -131,7 +132,50 @@ const productSchema = new mongoose.Schema({
   timestamps: true
 });
 
+// Add pre-validation middleware to handle empty supplier strings
+productSchema.pre('validate', function(next) {
+  // If supplier is an empty string or invalid, set to null
+  if (this.supplier === '' || this.supplier === 'null' || this.supplier === undefined) {
+    this.supplier = null;
+  }
+  next();
+});
+
+// Add middleware to ensure nulls are properly handled
+productSchema.pre('save', function(next) {
+  if (this.supplier === '') {
+    this.supplier = null;
+  }
+  next();
+});
+
 const Product = mongoose.model('Product', productSchema);
+
+// Create default supplier if not exists
+const createDefaultSupplier = async () => {
+  try {
+    const defaultSupplier = await Supplier.findOne({ name: 'Default Supplier' });
+    if (!defaultSupplier) {
+      console.log('Creating default supplier...');
+      const newSupplier = new Supplier({
+        name: 'Default Supplier',
+        contactPerson: 'System Admin',
+        email: 'admin@safariflow.com',
+        phone: '000-000-0000',
+        address: 'System Default',
+        products: []
+      });
+      const savedSupplier = await newSupplier.save();
+      console.log('Default supplier created with ID:', savedSupplier._id);
+      return savedSupplier;
+    }
+    console.log('Default supplier already exists with ID:', defaultSupplier._id);
+    return defaultSupplier;
+  } catch (error) {
+    console.error('Error creating default supplier:', error);
+    return null;
+  }
+};
 
 // Sales Schema
 const saleSchema = new mongoose.Schema({
@@ -278,6 +322,58 @@ const supplierSchema = new mongoose.Schema({
 });
 
 const Supplier = mongoose.model('Supplier', supplierSchema);
+
+// Server-side notification handler (will be initialized later)
+let NotificationService = null;
+
+// Try to load the notification service
+const initNotificationService = async () => {
+  try {
+    const module = await import('./src/lib/services/notificationService.js');
+    NotificationService = module.NotificationService;
+    
+    // Add default implementations in case some methods are missing
+    if (!NotificationService) {
+      throw new Error('NotificationService is not defined in the imported module');
+    }
+    
+    // Add default methods if any are missing
+    NotificationService.notifyNewTransaction = NotificationService.notifyNewTransaction || 
+      ((amount, items) => console.log(`Transaction completed: ${amount} for ${items} items`));
+    
+    NotificationService.notifyStockUpdate = NotificationService.notifyStockUpdate || 
+      ((items) => console.log(`Stock updated for ${items} items`));
+    
+    NotificationService.checkStockLevels = NotificationService.checkStockLevels || 
+      ((products) => console.log(`Checking stock levels for ${products?.length || 0} products`));
+    
+    console.log('Notification service initialized successfully');
+  } catch (error) {
+    console.error('Failed to initialize notification service, creating fallback implementation:', error);
+    
+    // Create a fallback implementation
+    NotificationService = {
+      notifyNewTransaction: (amount, items) => {
+        console.log(`NEW TRANSACTION: Sale of ${amount} with ${items} items`);
+      },
+      notifyStockUpdate: (items) => {
+        console.log(`STOCK UPDATED: ${items} items`);
+      },
+      checkStockLevels: (products) => {
+        if (!products || !products.length) return { lowStockItems: [], outOfStockItems: [] };
+        
+        const lowStockItems = products.filter(p => p.stock > 0 && p.stock <= 5);
+        const outOfStockItems = products.filter(p => p.stock === 0);
+        
+        console.log(`STOCK CHECK: ${lowStockItems.length} low stock, ${outOfStockItems.length} out of stock`);
+        return { lowStockItems, outOfStockItems };
+      }
+    };
+  }
+};
+
+// Initialize as soon as possible
+initNotificationService();
 
 // API Routes
 // Register User
@@ -454,15 +550,47 @@ app.get('/api/products', async (req, res) => {
   }
 });
 
+// Get product categories
+app.get('/api/products/categories', async (req, res) => {
+  try {
+    // Aggregate products by category
+    const categoryCounts = await Product.aggregate([
+      { $group: { _id: '$category', count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $project: { _id: 0, name: '$_id', count: 1 } }
+    ]);
+    
+    res.json(categoryCounts);
+  } catch (error) {
+    console.error('Error getting product categories:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
 // Get product by ID
 app.get('/api/products/:id', async (req, res) => {
   try {
     const { id } = req.params;
     
+    // Skip if the ID is 'categories' as it's handled by a different route
+    if (id === 'categories') {
+      return res.status(404).json({ message: 'Invalid product ID' });
+    }
+    
     const product = await Product.findById(id);
     
     if (!product) {
       return res.status(404).json({ message: 'Product not found' });
+    }
+    
+    // Get supplier name if available
+    let supplierName = '';
+    if (product.supplier) {
+      const SupplierModel = mongoose.model('Supplier');
+      const supplier = await SupplierModel.findById(product.supplier);
+      if (supplier) {
+        supplierName = supplier.name;
+      }
     }
     
     res.json({
@@ -474,7 +602,7 @@ app.get('/api/products/:id', async (req, res) => {
       costPrice: product.costPrice,
       stock: product.stock,
       imageUrl: product.imageUrl,
-      supplier: product.supplier,
+      supplier: supplierName,
       reorderLevel: product.reorderLevel,
       autoReorder: product.autoReorder,
       targetStockLevel: product.targetStockLevel,
@@ -492,16 +620,64 @@ app.post('/api/products', async (req, res) => {
   try {
     const productData = req.body;
     
-    // Check if supplier name is provided and get supplier ID
-    if (productData.supplier && typeof productData.supplier === 'string') {
-      const SupplierModel = mongoose.model('Supplier');
-      const supplier = await SupplierModel.findOne({ name: productData.supplier });
-      
-      if (supplier) {
-        productData.supplier = supplier._id;
-      } else {
-        // If supplier name doesn't exist, set supplier to null
-        productData.supplier = null;
+    console.log('Creating product with data:', JSON.stringify({
+      ...productData,
+      supplier: productData.supplier === '' ? 'EMPTY STRING' : productData.supplier
+    }));
+    
+    // Handle supplier field properly
+    if (productData.hasOwnProperty('supplier')) {
+      // If supplier is empty string, null, or undefined, try to use default supplier
+      if (!productData.supplier || productData.supplier === '' || productData.supplier === 'null') {
+        console.log('Finding default supplier');
+        try {
+          const defaultSupplier = await Supplier.findOne({ name: 'Default Supplier' });
+          if (defaultSupplier) {
+            console.log(`Using default supplier with ID: ${defaultSupplier._id}`);
+            productData.supplier = defaultSupplier._id;
+          } else {
+            console.log('No default supplier found, setting to null');
+            productData.supplier = null;
+          }
+        } catch (defaultSupplierError) {
+          console.error('Error finding default supplier:', defaultSupplierError);
+          productData.supplier = null;
+        }
+      } else if (typeof productData.supplier === 'string') {
+        // If it's a non-empty string, try to find the supplier by name
+        try {
+          const SupplierModel = mongoose.model('Supplier');
+          const supplier = await SupplierModel.findOne({ name: productData.supplier });
+          
+          if (supplier) {
+            console.log(`Found supplier: ${supplier.name} with ID: ${supplier._id}`);
+            productData.supplier = supplier._id;
+          } else {
+            console.log(`Supplier not found with name: ${productData.supplier}, using default`);
+            // Try to use default supplier
+            const defaultSupplier = await Supplier.findOne({ name: 'Default Supplier' });
+            if (defaultSupplier) {
+              console.log(`Using default supplier with ID: ${defaultSupplier._id}`);
+              productData.supplier = defaultSupplier._id;
+            } else {
+              productData.supplier = null;
+            }
+          }
+        } catch (supplierError) {
+          console.error('Error finding supplier:', supplierError);
+          productData.supplier = null;
+        }
+      }
+    } else {
+      // If supplier is not provided, use default supplier
+      try {
+        const defaultSupplier = await Supplier.findOne({ name: 'Default Supplier' });
+        if (defaultSupplier) {
+          console.log(`Adding default supplier with ID: ${defaultSupplier._id}`);
+          productData.supplier = defaultSupplier._id;
+        }
+      } catch (error) {
+        console.error('Error finding default supplier:', error);
       }
     }
     
@@ -518,6 +694,15 @@ app.post('/api/products', async (req, res) => {
       );
     }
     
+    // Get supplier name for response
+    let supplierName = '';
+    if (savedProduct.supplier) {
+      const supplier = await Supplier.findById(savedProduct.supplier);
+      if (supplier) {
+        supplierName = supplier.name;
+      }
+    }
+    
     res.status(201).json({
       id: savedProduct._id,
       name: savedProduct.name,
@@ -527,7 +712,7 @@ app.post('/api/products', async (req, res) => {
       costPrice: savedProduct.costPrice,
       stock: savedProduct.stock,
       imageUrl: savedProduct.imageUrl,
-      supplier: productData.supplier, // Return the original supplier name
+      supplier: supplierName,
       reorderLevel: savedProduct.reorderLevel,
       autoReorder: savedProduct.autoReorder,
       targetStockLevel: savedProduct.targetStockLevel,
@@ -536,6 +721,24 @@ app.post('/api/products', async (req, res) => {
     });
   } catch (error) {
     console.error('Error creating product:', error);
+    
+    // Add better error diagnostics
+    if (error.name === 'ValidationError') {
+      // Check for specific validation errors
+      const errorMessages = {};
+      for (const field in error.errors) {
+        errorMessages[field] = {
+          message: error.errors[field].message,
+          kind: error.errors[field].kind,
+          value: error.errors[field].value
+        };
+      }
+      return res.status(400).json({ 
+        message: 'Validation error', 
+        fieldErrors: errorMessages 
+      });
+    }
+    
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
@@ -546,6 +749,12 @@ app.put('/api/products/:id', async (req, res) => {
     const { id } = req.params;
     const updateData = req.body;
     
+    console.log('Updating product:', id);
+    console.log('Update data:', JSON.stringify({
+      ...updateData,
+      supplier: updateData.supplier === '' ? 'EMPTY STRING' : updateData.supplier
+    }));
+    
     // Find the current product to get the previous supplier if there is one
     const currentProduct = await Product.findById(id);
     
@@ -555,16 +764,48 @@ app.put('/api/products/:id', async (req, res) => {
     
     const previousSupplierId = currentProduct.supplier;
     
-    // Check if supplier name is provided and get supplier ID
-    if (updateData.supplier && typeof updateData.supplier === 'string') {
-      const SupplierModel = mongoose.model('Supplier');
-      const supplier = await SupplierModel.findOne({ name: updateData.supplier });
-      
-      if (supplier) {
-        updateData.supplier = supplier._id;
-      } else {
-        // If supplier name doesn't exist, set supplier to null
-        updateData.supplier = null;
+    // Handle supplier field properly
+    if (updateData.hasOwnProperty('supplier')) {
+      // If supplier is empty string, null, or undefined, try to use default supplier
+      if (!updateData.supplier || updateData.supplier === '' || updateData.supplier === 'null') {
+        console.log('Finding default supplier');
+        try {
+          const defaultSupplier = await Supplier.findOne({ name: 'Default Supplier' });
+          if (defaultSupplier) {
+            console.log(`Using default supplier with ID: ${defaultSupplier._id}`);
+            updateData.supplier = defaultSupplier._id;
+          } else {
+            console.log('No default supplier found, setting to null');
+            updateData.supplier = null;
+          }
+        } catch (defaultSupplierError) {
+          console.error('Error finding default supplier:', defaultSupplierError);
+          updateData.supplier = null;
+        }
+      } else if (typeof updateData.supplier === 'string') {
+        // If it's a non-empty string, try to find the supplier by name
+        try {
+          const SupplierModel = mongoose.model('Supplier');
+          const supplier = await SupplierModel.findOne({ name: updateData.supplier });
+          
+          if (supplier) {
+            console.log(`Found supplier: ${supplier.name} with ID: ${supplier._id}`);
+            updateData.supplier = supplier._id;
+          } else {
+            console.log(`Supplier not found with name: ${updateData.supplier}, using default`);
+            // Try to use default supplier
+            const defaultSupplier = await Supplier.findOne({ name: 'Default Supplier' });
+            if (defaultSupplier) {
+              console.log(`Using default supplier with ID: ${defaultSupplier._id}`);
+              updateData.supplier = defaultSupplier._id;
+            } else {
+              updateData.supplier = null;
+            }
+          }
+        } catch (supplierError) {
+          console.error('Error finding supplier:', supplierError);
+          updateData.supplier = null;
+        }
       }
     }
     
@@ -572,7 +813,7 @@ app.put('/api/products/:id', async (req, res) => {
     const updatedProduct = await Product.findByIdAndUpdate(
       id,
       updateData,
-      { new: true }
+      { new: true, runValidators: true }
     );
     
     if (!updatedProduct) {
@@ -625,6 +866,24 @@ app.put('/api/products/:id', async (req, res) => {
     });
   } catch (error) {
     console.error('Error updating product:', error);
+    
+    // Add better error diagnostics
+    if (error.name === 'ValidationError') {
+      // Check for specific validation errors
+      const errorMessages = {};
+      for (const field in error.errors) {
+        errorMessages[field] = {
+          message: error.errors[field].message,
+          kind: error.errors[field].kind,
+          value: error.errors[field].value
+        };
+      }
+      return res.status(400).json({ 
+        message: 'Validation error', 
+        fieldErrors: errorMessages 
+      });
+    }
+    
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
@@ -758,36 +1017,66 @@ app.post('/api/sales', async (req, res) => {
     const processedProducts = [];
     
     for (const item of products) {
-      // Check if product exists and has sufficient stock
-      const product = await Product.findById(item.product);
-      
-      if (!product) {
-        return res.status(400).json({ message: `Product with ID ${item.product} not found` });
-      }
-      
-      if (channel === 'in-store' && product.stock < item.quantity) {
-        return res.status(400).json({ 
-          message: `Insufficient stock for ${product.name}. Available: ${product.stock}, Requested: ${item.quantity}` 
+      try {
+        // Check if product exists and has sufficient stock
+        let productId;
+        
+        // Handle both string IDs and object format
+        if (typeof item.product === 'object' && item.product.id) {
+          productId = item.product.id;
+        } else if (typeof item.product === 'object' && item.product._id) {
+          productId = item.product._id;
+        } else {
+          productId = item.product;
+        }
+        
+        // Ensure productId is a string
+        productId = String(productId);
+        
+        // Check if productId is valid
+        try {
+          if (!mongoose.Types.ObjectId.isValid(productId)) {
+            console.error(`Invalid ObjectId format for product: ${JSON.stringify(item.product)}`);
+            return res.status(400).json({ message: `Invalid product ID format: ${productId}` });
+          }
+        } catch (idError) {
+          console.error(`Error validating ObjectId: ${idError.message}`);
+          return res.status(400).json({ message: `Invalid product ID: ${idError.message}` });
+        }
+        
+        const product = await Product.findById(productId);
+        
+        if (!product) {
+          return res.status(400).json({ message: `Product with ID ${productId} not found` });
+        }
+        
+        if (channel === 'in-store' && product.stock < item.quantity) {
+          return res.status(400).json({ 
+            message: `Insufficient stock for ${product.name}. Available: ${product.stock}, Requested: ${item.quantity}` 
+          });
+        }
+        
+        // Create a snapshot of the product at the time of sale
+        processedProducts.push({
+          product: product._id, // Always use the MongoDB _id
+          productSnapshot: {
+            name: product.name,
+            category: product.category,
+            price: product.price,
+            barcode: product.barcode
+          },
+          quantity: item.quantity,
+          priceAtSale: item.priceAtSale || product.price
         });
-      }
-      
-      // Create a snapshot of the product at the time of sale
-      processedProducts.push({
-        product: product._id,
-        productSnapshot: {
-          name: product.name,
-          category: product.category,
-          price: product.price,
-          barcode: product.barcode
-        },
-        quantity: item.quantity,
-        priceAtSale: item.priceAtSale || product.price
-      });
-      
-      // Update stock for in-store purchases
-      if (channel === 'in-store') {
-        product.stock -= item.quantity;
-        await product.save();
+        
+        // Update stock for in-store purchases
+        if (channel === 'in-store') {
+          product.stock -= item.quantity;
+          await product.save();
+        }
+      } catch (error) {
+        console.error(`Error processing product ${JSON.stringify(item.product)}:`, error);
+        return res.status(400).json({ message: `Error processing product: ${error.message}` });
       }
     }
     
@@ -805,7 +1094,46 @@ app.post('/api/sales', async (req, res) => {
     
     const savedSale = await newSale.save();
     
-    res.status(201).json(savedSale);
+    // Format the response with client-friendly IDs
+    const formattedSale = {
+      id: savedSale._id,
+      products: savedSale.products.map(item => ({
+        product: {
+          id: item.product,
+          ...item.productSnapshot
+        },
+        quantity: item.quantity,
+        priceAtSale: item.priceAtSale
+      })),
+      totalAmount: savedSale.totalAmount,
+      paymentMethod: savedSale.paymentMethod,
+      customerId: savedSale.customerId,
+      customerName: savedSale.customerName,
+      employeeId: savedSale.employeeId,
+      channel: savedSale.channel,
+      timestamp: savedSale.timestamp,
+      createdAt: savedSale.createdAt,
+      updatedAt: savedSale.updatedAt
+    };
+    
+    // Notify about the transaction
+    try {
+      await NotificationService.notifyNewTransaction(totalAmount, processedProducts.length);
+      
+      // Notify about stock update
+      if (channel === 'in-store') {
+        await NotificationService.notifyStockUpdate(processedProducts.length);
+      }
+      
+      // Check for low stock after sale
+      const allProducts = await Product.find();
+      await NotificationService.checkStockLevels(allProducts);
+    } catch (notifyError) {
+      console.warn('Could not send notification:', notifyError);
+      // Continue - notifications are non-critical
+    }
+    
+    res.status(201).json(formattedSale);
   } catch (error) {
     console.error('Error creating sale:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
@@ -898,12 +1226,24 @@ app.get('/api/purchase-orders', async (req, res) => {
     res.json(purchaseOrders.map(order => ({
       id: order._id,
       supplierId: order.supplierId,
-      products: order.products.map(item => ({
-        productId: item.productId._id,
-        productName: item.productId.name,
-        quantity: item.quantity,
-        unitPrice: item.unitPrice
-      })),
+      products: order.products.map(item => {
+        // Check if product exists before accessing its properties
+        if (!item.productId) {
+          return {
+            productId: 'unknown',
+            productName: 'Product Not Found',
+            quantity: item.quantity,
+            unitPrice: item.unitPrice
+          };
+        }
+        
+        return {
+          productId: item.productId._id,
+          productName: item.productId.name,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice
+        };
+      }),
       status: order.status,
       totalAmount: order.totalAmount,
       orderDate: order.orderDate,
@@ -933,12 +1273,24 @@ app.get('/api/purchase-orders/:id', async (req, res) => {
     res.json({
       id: purchaseOrder._id,
       supplierId: purchaseOrder.supplierId,
-      products: purchaseOrder.products.map(item => ({
-        productId: item.productId._id,
-        productName: item.productId.name,
-        quantity: item.quantity,
-        unitPrice: item.unitPrice
-      })),
+      products: purchaseOrder.products.map(item => {
+        // Check if product exists before accessing its properties
+        if (!item.productId) {
+          return {
+            productId: 'unknown',
+            productName: 'Product Not Found',
+            quantity: item.quantity,
+            unitPrice: item.unitPrice
+          };
+        }
+        
+        return {
+          productId: item.productId._id,
+          productName: item.productId.name,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice
+        };
+      }),
       status: purchaseOrder.status,
       totalAmount: purchaseOrder.totalAmount,
       orderDate: purchaseOrder.orderDate,
@@ -957,6 +1309,35 @@ app.get('/api/purchase-orders/:id', async (req, res) => {
 app.post('/api/purchase-orders', async (req, res) => {
   try {
     const orderData = req.body;
+    
+    // Validate product IDs before creating purchase order
+    if (orderData.products && Array.isArray(orderData.products)) {
+      const validatedProducts = [];
+      
+      for (const item of orderData.products) {
+        // Skip items with missing or invalid productId
+        if (!item.productId) {
+          console.warn('Skipping purchase order item with missing productId');
+          continue;
+        }
+        
+        try {
+          // Check if product exists
+          const product = await Product.findById(item.productId);
+          if (product) {
+            validatedProducts.push(item);
+          } else {
+            console.warn(`Product with ID ${item.productId} not found, skipping from purchase order`);
+          }
+        } catch (err) {
+          console.error(`Error validating product ${item.productId}:`, err);
+          // Skip invalid product IDs
+        }
+      }
+      
+      // Replace products array with validated products
+      orderData.products = validatedProducts;
+    }
     
     // Create purchase order
     const purchaseOrder = new PurchaseOrder(orderData);
@@ -1011,12 +1392,25 @@ app.patch('/api/purchase-orders/:id/status', async (req, res) => {
     // If order is received, update product stock
     if (status === 'received') {
       for (const item of updatedOrder.products) {
-        // Find product
-        const product = await Product.findById(item.productId);
-        if (product) {
-          // Increase stock
-          product.stock += item.quantity;
-          await product.save();
+        // Skip if productId is missing or invalid
+        if (!item.productId) {
+          console.warn(`Skipping stock update for item with missing productId in order ${id}`);
+          continue;
+        }
+        
+        try {
+          // Find product
+          const product = await Product.findById(item.productId);
+          if (product) {
+            // Increase stock
+            product.stock += item.quantity;
+            await product.save();
+          } else {
+            console.warn(`Product with ID ${item.productId} not found during order processing`);
+          }
+        } catch (err) {
+          console.error(`Error updating stock for product ${item.productId}:`, err);
+          // Continue with other products
         }
       }
     }
@@ -1025,7 +1419,13 @@ app.patch('/api/purchase-orders/:id/status', async (req, res) => {
     res.json({
       id: updatedOrder._id,
       supplierId: updatedOrder.supplierId,
-      products: updatedOrder.products,
+      products: updatedOrder.products.map(item => {
+        return {
+          productId: item.productId || 'unknown',
+          quantity: item.quantity,
+          unitPrice: item.unitPrice
+        };
+      }),
       status: updatedOrder.status,
       totalAmount: updatedOrder.totalAmount,
       orderDate: updatedOrder.orderDate,
@@ -1191,6 +1591,31 @@ app.get('*', (req, res) => {
 });
 
 // Start server
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`Server is running on port ${PORT}`);
+  
+  // Create default supplier
+  const defaultSupplier = await createDefaultSupplier();
+  
+  // Set up a periodic check for low stock items (every hour)
+  // First check after 5 minutes to give the system time to initialize
+  setTimeout(() => {
+    const checkForLowStock = async () => {
+      try {
+        console.log('Performing scheduled check for low stock items');
+        const products = await Product.find();
+        if (NotificationService) {
+          await NotificationService.checkStockLevels(products);
+        }
+      } catch (error) {
+        console.error('Error checking for low stock:', error);
+      }
+    };
+    
+    // Run initial check
+    checkForLowStock();
+    
+    // Schedule regular checks (every hour)
+    setInterval(checkForLowStock, 60 * 60 * 1000);
+  }, 5 * 60 * 1000);
 }); 

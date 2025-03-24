@@ -13,6 +13,8 @@ import { BillItem, Sale } from '@/lib/types';
 import { useToast } from '@/components/ui/use-toast';
 import { useSalesStore } from '@/lib/stores/salesStore';
 import { v4 as uuidv4 } from 'uuid';
+import { createSale } from '@/api/sales';
+import { NotificationService } from '@/lib/services/notificationService';
 
 // Sample cart items - used only if not coming from POS
 const sampleCartItems: CartItem[] = [
@@ -63,47 +65,85 @@ const CheckoutPage: React.FC = () => {
   const channel = isPOSCheckout ? location.state.channel || 'in-store' : 'online';
 
   useEffect(() => {
-    // Create a payment intent when the component mounts
-    const getPaymentIntent = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
+    // Only create a payment intent for card payments
+    if (paymentMethod === 'card' || paymentMethod === 'online') {
+      // Create a payment intent when the component mounts
+      const getPaymentIntent = async () => {
+        try {
+          setIsLoading(true);
+          setError(null);
+          
+          // Get client secret from our simulated API
+          const { clientSecret } = await createPaymentIntent(cartItems);
+          setClientSecret(clientSecret);
+        } catch (err) {
+          console.error('Failed to create payment intent:', err);
+          setError('There was a problem setting up the payment. Please try again later.');
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+      getPaymentIntent();
+    } else {
+      // For cash payments, we don't need a payment intent
+      setIsLoading(false);
+    }
+  }, [cartItems, paymentMethod]);
+
+  // Process the sale and handle notifications
+  const processSale = async (saleData: Omit<Sale, 'id' | 'timestamp'>) => {
+    try {
+      console.log('Processing sale:', saleData);
+      
+      // Update local stock if this is a POS checkout
+      if (isPOSCheckout && billItems.length > 0 && channel === 'in-store') {
+        updateProductStock(billItems);
+        setStockUpdated(true);
         
-        // Get client secret from our simulated API
-        const { clientSecret } = await createPaymentIntent(cartItems);
-        setClientSecret(clientSecret);
-      } catch (err) {
-        console.error('Failed to create payment intent:', err);
-        setError('There was a problem setting up the payment. Please try again later.');
-      } finally {
-        setIsLoading(false);
+        // Show toast notification
+        toast({
+          title: "Stock Updated",
+          description: "Product inventory has been updated successfully.",
+          variant: "default"
+        });
       }
-    };
+      
+      // Create the sale in the database through the API
+      const savedSale = await createSale(saleData);
+      console.log('Sale saved to database:', savedSale);
+      
+      // Add to local transaction history
+      addSale({
+        ...savedSale,
+        id: savedSale.id || uuidv4(), // Use server-generated ID or create one
+        timestamp: savedSale.timestamp || new Date()
+      });
+      
+      // Create notifications for the transaction
+      NotificationService.notifyNewTransaction(total, saleData.products.length);
+      
+      // Check for low stock notifications after a successful sale
+      if (channel === 'in-store') {
+        NotificationService.notifyStockUpdate(saleData.products.length);
+      }
+      
+      return savedSale;
+    } catch (error) {
+      console.error('Error processing sale:', error);
+      throw error;
+    }
+  };
 
-    getPaymentIntent();
-  }, [cartItems]);
-
-  const handlePaymentSuccess = (paymentIntent: any) => {
+  const handlePaymentSuccess = async (paymentIntent: any) => {
     setPaymentStatus('succeeded');
     console.log('Payment succeeded:', paymentIntent);
     
-    // If this is from POS, update the stock
-    if (isPOSCheckout && billItems.length > 0) {
-      updateProductStock(billItems);
-      setStockUpdated(true);
-      
-      // Show toast notification
-      toast({
-        title: "Stock Updated",
-        description: "Product inventory has been updated successfully.",
-        variant: "default"
-      });
-
-      // Add to transaction history
-      const newSale: Sale = {
-        id: uuidv4(),
+    try {
+      // Prepare sale data
+      const saleData: Omit<Sale, 'id' | 'timestamp'> = {
         products: billItems.map(item => ({
-          product: item.product,
+          product: item.product.id, // Send just the ID for API
           quantity: item.quantity,
           priceAtSale: item.product.price
         })),
@@ -111,56 +151,72 @@ const CheckoutPage: React.FC = () => {
         paymentMethod: paymentMethod,
         employeeId: 'EMP-001', // Default employee ID
         channel: channel,
-        timestamp: new Date(),
         customerName: customerName
       };
       
-      // Add to transaction history
-      addSale(newSale);
-    } else if (!isPOSCheckout) {
-      // For online purchases, create a sale record without stock updates
-      // In a real system we would get actual product data, here we're mimicking it
-      const newSale: Sale = {
-        id: uuidv4(),
-        products: cartItems.map(item => ({
-          product: {
-            id: item.id,
-            name: item.name,
-            barcode: `BC-${Math.floor(Math.random() * 10000000)}`,
-            category: 'Online Purchase',
-            price: item.price,
-            costPrice: item.price * 0.6, // Estimate cost as 60% of price
-            stock: 0, // Not relevant for online purchases
-            createdAt: new Date(),
-            updatedAt: new Date()
-          },
+      // Process the sale
+      await processSale(saleData);
+      
+      if (isPOSCheckout) {
+        // For POS checkouts, navigate back to billing after successful payment
+        setTimeout(() => {
+          navigate('/billing', { 
+            state: { 
+              paymentComplete: true,
+              paymentId: paymentIntent.id,
+              paymentMethod: paymentMethod,
+              returnToPOS: true
+            } 
+          });
+        }, 2000);
+      }
+    } catch (err) {
+      console.error('Error finalizing sale:', err);
+      toast({
+        title: "Error",
+        description: "There was a problem finalizing your sale. The payment was processed, but there was an error saving the transaction.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleCashPayment = async () => {
+    try {
+      setPaymentStatus('processing');
+      
+      // Prepare sale data
+      const saleData: Omit<Sale, 'id' | 'timestamp'> = {
+        products: billItems.map(item => ({
+          product: item.product.id, // Send just the ID for API
           quantity: item.quantity,
-          priceAtSale: item.price
+          priceAtSale: item.product.price
         })),
         totalAmount: total,
-        paymentMethod: paymentMethod,
-        employeeId: 'ONLINE-001',
-        channel: 'online',
-        timestamp: new Date(),
+        paymentMethod: 'cash',
+        employeeId: 'EMP-001', // Default employee ID
+        channel: 'in-store',
         customerName: customerName
       };
       
-      // Add to transaction history
-      addSale(newSale);
-    }
-    
-    if (isPOSCheckout) {
+      // Process the sale
+      await processSale(saleData);
+      
+      setPaymentStatus('succeeded');
+      
       // For POS checkouts, navigate back to billing after successful payment
       setTimeout(() => {
         navigate('/billing', { 
           state: { 
             paymentComplete: true,
-            paymentId: paymentIntent.id,
-            paymentMethod: 'card',
+            paymentMethod: 'cash',
             returnToPOS: true
           } 
         });
       }, 2000);
+    } catch (err) {
+      console.error('Error processing cash payment:', err);
+      setPaymentStatus('failed');
+      setError('There was a problem processing your cash payment.');
     }
   };
 
@@ -169,6 +225,13 @@ const CheckoutPage: React.FC = () => {
     console.error('Payment failed:', error);
     setError(error.message);
   };
+
+  // Auto-process cash payments
+  useEffect(() => {
+    if (paymentMethod === 'cash' && isPOSCheckout && isLoading === false) {
+      handleCashPayment();
+    }
+  }, [paymentMethod, isPOSCheckout, isLoading]);
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
@@ -240,7 +303,9 @@ const CheckoutPage: React.FC = () => {
                 Payment
               </CardTitle>
               <CardDescription>
-                Complete your purchase securely with Stripe
+                {paymentMethod === 'cash' 
+                  ? 'Processing cash payment' 
+                  : 'Complete your purchase securely with Stripe'}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -262,11 +327,14 @@ const CheckoutPage: React.FC = () => {
                   <AlertTitle>Payment Error</AlertTitle>
                   <AlertDescription>{error}</AlertDescription>
                 </Alert>
-              ) : isLoading ? (
+              ) : isLoading || paymentStatus === 'processing' ? (
                 <div className="flex justify-center p-6">
                   <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+                  <p className="ml-3 text-muted-foreground">
+                    {paymentMethod === 'cash' ? 'Processing cash payment...' : 'Setting up payment...'}
+                  </p>
                 </div>
-              ) : clientSecret ? (
+              ) : clientSecret && (paymentMethod === 'card' || paymentMethod === 'online') ? (
                 <StripeProvider clientSecret={clientSecret}>
                   <CheckoutForm 
                     amount={Math.round(total * 100)} // Convert to cents

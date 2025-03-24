@@ -1,19 +1,14 @@
 import { spawn } from 'child_process';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 import fs from 'fs';
 import dotenv from 'dotenv';
-import path from 'path';
 
 // Load environment variables
-dotenv.config();
-
+dotenv.config(); // Load from .env
 // Try to load from .env.local if it exists
 if (fs.existsSync('.env.local')) {
-  const envLocal = dotenv.parse(fs.readFileSync('.env.local'));
-  
-  // Add all variables from .env.local to process.env
-  for (const key in envLocal) {
-    process.env[key] = envLocal[key];
-  }
+  dotenv.config({ path: '.env.local' });
 }
 
 // Ensure MongoDB URI is set
@@ -23,23 +18,37 @@ if (!process.env.VITE_MONGODB_URI) {
   process.exit(1);
 }
 
+// Get the current directory path
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
 console.log('Starting server with MongoDB URI:', process.env.VITE_MONGODB_URI ? 'Defined' : 'Not defined');
 
-// Start server process with all environment variables
-const serverProcess = spawn('node', ['server.js'], {
-  stdio: 'inherit',
-  env: process.env
-});
+// Function to start the server
+function startServer() {
+  // Start the server as a child process
+  const server = spawn('node', [join(__dirname, 'server.js')], {
+    stdio: 'inherit',
+    env: process.env
+  });
+  
+  // Handle server close event
+  server.on('close', (code) => {
+    console.log(`Server process exited with code ${code}`);
+    
+    // If the server exited with an error, restart it after a delay
+    if (code !== 0) {
+      console.log('Server crashed, restarting in 5 seconds...');
+      setTimeout(startServer, 5000);
+    }
+  });
+  
+  // Handle server error event
+  server.on('error', (err) => {
+    console.error('Failed to start server:', err);
+    process.exit(1);
+  });
+}
 
-// Handle server process events
-serverProcess.on('error', (err) => {
-  console.error('Failed to start server:', err);
-  process.exit(1);
-});
-
-serverProcess.on('exit', (code) => {
-  if (code !== 0) {
-    console.error(`Server process exited with code ${code}`);
-    process.exit(code);
-  }
-}); 
+// Start the server
+startServer(); 

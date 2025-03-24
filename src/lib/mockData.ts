@@ -57,7 +57,7 @@ const defaultProducts: Product[] = [
     category: 'Keyrings',
     price: 12.99,
     costPrice: 4.99,
-    stock: 4,
+    stock: 30,
     imageUrl: 'https://images.unsplash.com/photo-1614252235316-8c857d38b5f4?q=80&w=2070&auto=format&fit=crop',
     supplier: 'Safari Gifts Inc',
     reorderLevel: 25,

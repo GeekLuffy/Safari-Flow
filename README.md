@@ -1,69 +1,64 @@
 # SafariFlow - Inventory Management System
 
-A modern, feature-rich inventory management system built with React, TypeScript, and MongoDB. InvenHub helps businesses manage their inventory, track sales, analyze performance, and streamline operations.
+A modern, feature-rich inventory management system built with React and MongoDB. SafariFlow helps businesses manage their inventory, track sales, analyze performance, and streamline operations.
 
 ## 🌟 Features
 
 ### 📊 Dashboard
 - Real-time overview of store performance
-- Key metrics tracking (revenue, profit, profit margin)
-- Monthly sales trends visualization
+- Key metrics tracking (revenue, total transactions)
+- Sales by payment method and channel analytics
 - Quick access to common operations
 - Inventory status summary
-- Sales by category and channel analytics
 
 ### 📦 Inventory Management
 - Complete product catalog management
 - Low stock alerts and monitoring
-- Barcode scanner integration
-- Automated reorder capabilities
 - Stock level tracking
 - Product categorization
+- Automated reorder capabilities
+- Target stock level management
 
 ### 🤝 Supplier Management
 - Supplier database
 - Purchase order management
-- Automated reordering system
+- Default supplier system
+- Supplier-product relationships
 - Supplier performance tracking
 
-### 💰 Billing & Transactions
+### 💰 Sales & Transactions
 - Sales transaction recording
-- Payment processing with Stripe integration
+- Multiple payment methods (cash, card, online)
 - Transaction history
-- Receipt generation
-- Multiple payment methods support
+- In-store and online sales channels
+- Customer information tracking
 
 ### 📈 Analytics & Reporting
-- Sales analytics
-- Inventory turnover analysis
-- Revenue and profit tracking
-- Category-wise performance
+- Sales analytics dashboard
+- Payment method distribution
 - Channel-wise sales analysis
+- Product sales tracking
+- Transaction volume monitoring
 
 ### 👥 User Management
-- Role-based access control (Admin, Staff)
+- Role-based access control (Admin, Staff, Guest)
 - User authentication and authorization
-- Customizable user permissions
-- User activity tracking
+- User profiles with avatars
+- Secure password management
 
 ### ⚙️ System Features
-- Dark/Light theme support
-- Multi-language support
-- Real-time updates
+- Real-time stock monitoring
+- Automated low stock notifications
 - Responsive design
-- Modern UI with shadcn/ui
+- Modern UI components
 - Secure authentication
 
 ## 🛠️ Technology Stack
 
 - **Frontend**:
   - React
-  - TypeScript
-  - Tailwind CSS
-  - shadcn/ui components
-  - Framer Motion for animations
-  - React Query for data fetching
-  - Zustand for state management
+  - Modern UI components
+  - Responsive design
 
 - **Backend**:
   - MongoDB for database
@@ -71,13 +66,9 @@ A modern, feature-rich inventory management system built with React, TypeScript,
   - Node.js runtime
 
 - **Authentication & Security**:
-  - JWT based authentication
-  - Role-based access control
   - Secure password hashing with bcrypt
-
-- **Payment Processing**:
-  - Stripe integration
-  - Secure payment handling
+  - Role-based access control
+  - Session management
 
 ## 🚀 Getting Started
 
@@ -95,7 +86,7 @@ git clone <repository-url>
 
 2. Navigate to project directory:
 ```bash
-cd invenhub
+cd Safari-Flow
 ```
 
 3. Install dependencies:
@@ -106,16 +97,10 @@ npm install
 4. Set up environment variables:
 Create a `.env` file in the root directory with the following variables:
 ```env
-MONGODB_URI=your_mongodb_connection_string
-STRIPE_SECRET_KEY=your_stripe_secret_key
+VITE_MONGODB_URI=your_mongodb_connection_string
 ```
 
-5. Initialize the database with sample data:
-```bash
-npm run init-db
-```
-
-6. Start the development server:
+5. Start the development server:
 ```bash
 npm run dev
 ```
@@ -124,7 +109,7 @@ The application will be available at `http://localhost:5173`
 
 ## 🔐 Environment Variables
 
-- `MONGODB_URI`: MongoDB connection string
+- `VITE_MONGODB_URI`: MongoDB connection string
 
 ## 🤝 Contributing
 
