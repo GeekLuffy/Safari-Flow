@@ -10,18 +10,8 @@ const __dirname = dirname(__filename);
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  server: {
-    host: "::",
-    port: 8080,
-    proxy: {
-      '/api': {
-        target: process.env.VITE_API_URL || 'http://localhost:5000',
-        changeOrigin: true,
-        secure: false,
-      },
-    },
-  },
   plugins: [react()],
+  base: '/',
   resolve: {
     alias: {
       '@': resolve(__dirname, './src')
@@ -29,27 +19,14 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    sourcemap: true,
-    emptyOutDir: true,
+    assetsDir: 'assets',
     rollupOptions: {
-      external: [],
       output: {
         manualChunks: {
-          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
           'ui-vendor': [
             '@radix-ui/react-tooltip',
             'framer-motion',
             'sonner'
-          ],
-          'form-vendor': [
-            'react-hook-form',
-            '@hookform/resolvers',
-            'zod'
-          ],
-          'data-vendor': [
-            '@tanstack/react-query',
-            '@tanstack/react-query-devtools',
-            'axios'
           ],
           'payment-vendor': [
             '@stripe/stripe-js',
@@ -58,24 +35,27 @@ export default defineConfig({
           ]
         }
       }
-    },
+    }
   },
   optimizeDeps: {
     include: [
       'react',
       'react-dom',
-      'react-router-dom',
-      'framer-motion',
-      '@tanstack/react-query',
       'axios',
-      'react-hook-form',
-      '@hookform/resolvers/zod',
-      'zod',
+      '@radix-ui/react-tooltip',
+      'framer-motion',
       '@stripe/stripe-js',
       '@stripe/react-stripe-js',
-      '@radix-ui/react-tooltip',
       'stripe',
       'sonner'
     ]
+  },
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3000',
+        changeOrigin: true
+      }
+    }
   }
 });
