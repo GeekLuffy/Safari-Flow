@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "server": "node server.js",
     "start": "node server.js",
-    "vercel-build": "vite build && cp vercel.json dist/"
+    "vercel-build": "npm install && vite build && cp vercel.json dist/"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "^1.0.5",
@@ -36,7 +36,9 @@
     "tailwind-merge": "^2.2.1",
     "tailwindcss-animate": "^1.0.7",
     "uuid": "^9.0.1",
-    "zustand": "^4.5.1"
+    "zustand": "^4.5.1",
+    "@vitejs/plugin-react": "^4.2.1",
+    "vite": "^5.0.0"
   },
   "devDependencies": {
     "@types/node": "^20.11.24",
@@ -52,7 +54,7 @@
     "postcss": "^8.4.35",
     "tailwindcss": "^3.4.1",
     "typescript": "^5.2.2",
-    "vite": "^5.1.4"
+    "vite": "^5.0.0"
   },
   "engines": {
     "node": ">=18.0.0"
