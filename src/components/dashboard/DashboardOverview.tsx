@@ -206,12 +206,6 @@ const DashboardOverview: React.FC = () => {
                   tickLine={false} 
                   tick={{ fill: '#888888', fontSize: 12 }}
                 />
-                <YAxis
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fill: '#888888', fontSize: 12 }}
-                  tickFormatter={(value) => `₹${value.toLocaleString()}`}
-                />
                 <Tooltip 
                   contentStyle={{ 
                     borderRadius: '8px', 
